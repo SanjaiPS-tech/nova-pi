@@ -60,13 +60,20 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
     }
   }
 
-  Future<void> _connectRemote(String username, String password) async {
+  Future<void> _connectRemote({
+    required String username,
+    required String password,
+    required String ip,
+    required int port,
+  }) async {
     setState(() => _isLoading = true);
-    final settings = Provider.of<SettingsService>(context, listen: false);
+    // final settings = Provider.of<SettingsService>(context, listen: false);
+    // We use provided IP/Port instead of settings directly, though defaults come from settings.
+
     try {
       final socket = await SSHSocket.connect(
-        settings.serverIp,
-        22,
+        ip,
+        port,
         timeout: const Duration(seconds: 10),
       );
       _sshClient = SSHClient(
@@ -111,27 +118,43 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
   }
 
   void _showLoginDialog() {
-    final userController = TextEditingController();
+    final settings = Provider.of<SettingsService>(context, listen: false);
+    final userController = TextEditingController(text: settings.userName);
     final passController = TextEditingController();
+    final ipController = TextEditingController(text: settings.serverIp);
+    final portController = TextEditingController(text: '22');
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         title: const Text('SSH Connection'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: userController,
-              decoration: const InputDecoration(labelText: 'Username'),
-            ),
-            TextField(
-              controller: passController,
-              decoration: const InputDecoration(labelText: 'Password'),
-              obscureText: true,
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: ipController,
+                decoration: const InputDecoration(
+                  labelText: 'IP Address / Host',
+                ),
+              ),
+              TextField(
+                controller: portController,
+                decoration: const InputDecoration(labelText: 'Port'),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: userController,
+                decoration: const InputDecoration(labelText: 'Username'),
+              ),
+              TextField(
+                controller: passController,
+                decoration: const InputDecoration(labelText: 'Password'),
+                obscureText: true,
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -145,8 +168,10 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
             onPressed: () {
               Navigator.pop(ctx);
               _connectRemote(
-                userController.text.trim(),
-                passController.text.trim(),
+                username: userController.text.trim(),
+                password: passController.text.trim(),
+                ip: ipController.text.trim(),
+                port: int.tryParse(portController.text.trim()) ?? 22,
               );
             },
             child: const Text('Connect'),

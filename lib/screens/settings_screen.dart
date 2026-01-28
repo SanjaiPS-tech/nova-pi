@@ -17,6 +17,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _webminPortController;
   late TextEditingController _piholePathController;
 
+  String _dashboardScheme = 'http';
+  String _webminScheme = 'https';
+
   @override
   void initState() {
     super.initState();
@@ -28,6 +31,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     _webminPortController = TextEditingController(text: settings.webminPort);
     _piholePathController = TextEditingController(text: settings.piholePath);
+    _dashboardScheme = settings.dashboardScheme;
+    _webminScheme = settings.webminScheme;
   }
 
   @override
@@ -47,7 +52,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         userName: _nameController.text.trim(),
         serverIp: _ipController.text.trim(),
         dashboardPort: _dashboardPortController.text.trim(),
+        dashboardScheme: _dashboardScheme,
         webminPort: _webminPortController.text.trim(),
+        webminScheme: _webminScheme,
         piholePath: _piholePathController.text.trim(),
       );
       if (mounted) {
@@ -66,6 +73,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _dashboardPortController.text = settings.dashboardPort;
       _webminPortController.text = settings.webminPort;
       _piholePathController.text = settings.piholePath;
+      _dashboardScheme = settings.dashboardScheme;
+      _webminScheme = settings.webminScheme;
     });
     if (mounted) {
       ScaffoldMessenger.of(
@@ -113,8 +122,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 16),
+              // Dashboard Configuration
               Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  SizedBox(
+                    width: 100,
+                    child: DropdownButtonFormField<String>(
+                      value: Provider.of<SettingsService>(
+                        context,
+                        listen: false,
+                      ).dashboardScheme,
+                      decoration: const InputDecoration(labelText: 'Protocol'),
+                      items: ['http', 'https']
+                          .map(
+                            (e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(e.toUpperCase()),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (val) {
+                        // We will handle saving differently or just track it in state if needed
+                        // For now, we rely on the save method which needs these values.
+                        // But wait, the _save method reads from controllers.
+                        // We need state variables for these dropdowns.
+                        setState(() {
+                          _dashboardScheme = val!;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: TextFormField(
                       controller: _dashboardPortController,
@@ -122,6 +161,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         labelText: 'Dashboard Port',
                       ),
                       keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Webmin Configuration
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  SizedBox(
+                    width: 100,
+                    child: DropdownButtonFormField<String>(
+                      value: Provider.of<SettingsService>(
+                        context,
+                        listen: false,
+                      ).webminScheme,
+                      decoration: const InputDecoration(labelText: 'Protocol'),
+                      items: ['http', 'https']
+                          .map(
+                            (e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(e.toUpperCase()),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (val) {
+                        setState(() {
+                          _webminScheme = val!;
+                        });
+                      },
                     ),
                   ),
                   const SizedBox(width: 16),

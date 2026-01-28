@@ -5,7 +5,9 @@ class SettingsService extends ChangeNotifier {
   static const String _keyUserName = 'userName';
   static const String _keyServerIp = 'serverIp';
   static const String _keyDashboardPort = 'dashboardPort';
+  static const String _keyDashboardScheme = 'dashboardScheme';
   static const String _keyWebminPort = 'webminPort';
+  static const String _keyWebminScheme = 'webminScheme';
   static const String _keyPiholePath = 'piholePath';
 
   late SharedPreferences _prefs;
@@ -14,14 +16,18 @@ class SettingsService extends ChangeNotifier {
   String _userName = '';
   String _serverIp = '';
   String _dashboardPort = '3000';
+  String _dashboardScheme = 'http';
   String _webminPort = '10000';
+  String _webminScheme = 'https';
   String _piholePath = '/admin/login';
 
   bool get initialized => _initialized;
   String get userName => _userName;
   String get serverIp => _serverIp;
   String get dashboardPort => _dashboardPort;
+  String get dashboardScheme => _dashboardScheme;
   String get webminPort => _webminPort;
+  String get webminScheme => _webminScheme;
   String get piholePath => _piholePath;
 
   bool get isConfigured => _userName.isNotEmpty && _serverIp.isNotEmpty;
@@ -37,7 +43,9 @@ class SettingsService extends ChangeNotifier {
     _userName = _prefs.getString(_keyUserName) ?? '';
     _serverIp = _prefs.getString(_keyServerIp) ?? '';
     _dashboardPort = _prefs.getString(_keyDashboardPort) ?? '3000';
+    _dashboardScheme = _prefs.getString(_keyDashboardScheme) ?? 'http';
     _webminPort = _prefs.getString(_keyWebminPort) ?? '10000';
+    _webminScheme = _prefs.getString(_keyWebminScheme) ?? 'https';
     _piholePath = _prefs.getString(_keyPiholePath) ?? '/admin/login';
   }
 
@@ -45,7 +53,9 @@ class SettingsService extends ChangeNotifier {
     required String userName,
     required String serverIp,
     String? dashboardPort,
+    String? dashboardScheme,
     String? webminPort,
+    String? webminScheme,
     String? piholePath,
   }) async {
     _userName = userName;
@@ -57,9 +67,17 @@ class SettingsService extends ChangeNotifier {
       _dashboardPort = dashboardPort;
       await _prefs.setString(_keyDashboardPort, dashboardPort);
     }
+    if (dashboardScheme != null) {
+      _dashboardScheme = dashboardScheme;
+      await _prefs.setString(_keyDashboardScheme, dashboardScheme);
+    }
     if (webminPort != null) {
       _webminPort = webminPort;
       await _prefs.setString(_keyWebminPort, webminPort);
+    }
+    if (webminScheme != null) {
+      _webminScheme = webminScheme;
+      await _prefs.setString(_keyWebminScheme, webminScheme);
     }
     if (piholePath != null) {
       _piholePath = piholePath;
@@ -71,18 +89,23 @@ class SettingsService extends ChangeNotifier {
 
   Future<void> resetDefaults() async {
     _dashboardPort = '3000';
+    _dashboardScheme = 'http';
     _webminPort = '10000';
+    _webminScheme = 'https';
     _piholePath = '/admin/login';
 
     await _prefs.setString(_keyDashboardPort, _dashboardPort);
+    await _prefs.setString(_keyDashboardScheme, _dashboardScheme);
     await _prefs.setString(_keyWebminPort, _webminPort);
+    await _prefs.setString(_keyWebminScheme, _webminScheme);
     await _prefs.setString(_keyPiholePath, _piholePath);
 
     notifyListeners();
   }
 
   // Getters for full URLs
-  String get dashboardUrl => 'http://$_serverIp:$_dashboardPort/login';
-  String get webminUrl => 'https://$_serverIp:$_webminPort';
-  String get piholeUrl => 'https://$_serverIp$_piholePath';
+  String get dashboardUrl =>
+      '$_dashboardScheme://$_serverIp:$_dashboardPort/login';
+  String get webminUrl => '$_webminScheme://$_serverIp:$_webminPort';
+  String get piholeUrl => 'http://$_serverIp$_piholePath';
 }

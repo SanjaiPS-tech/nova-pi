@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'package:http/http.dart' as http;
+import 'dart:io';
+// import 'package:http/http.dart' as http; // Unused now
 import 'package:flutter/foundation.dart';
 
 class ConnectivityService extends ChangeNotifier {
@@ -24,47 +25,57 @@ class ConnectivityService extends ChangeNotifier {
   Future<void> _checkConnection(String ipAddress) async {
     if (ipAddress.isEmpty) return;
 
-    // We try to ping the webmin port or just the root IP.
-    // Since we don't know what's running on port 80/443, we might try a generic port if provided.
-    // For now, let's try to reach the IP (assuming it responds to HTTP request or just check socket).
-    // A simple HTTP HEAD request to the Tailscale IP is a reasonable check,
-    // but often devices don't serve on port 80.
-    // Let's try checking the default dashboard port (3000) or Webmin (10000).
-    // We'll use the IP directly. If it fails, mark offline.
-
-    // NOTE: Simply pinging via ICMP is not easily available in all Flutter envs without native code.
-    // We will attempt to connect to the Webmin port (usually HTTPS but might be self-signed)
-    // or Dashboard port. Let's try a Socket connect for better reliability if http fails,
-    // but http is requested in the prompt ("periodically checking server reachability via an HTTP request").
-
-    // We will assume port 80 or the user specific ports. Let's stick to the prompt's "HTTP request".
-    // We'll try the Dashboard URL since it's one of the main functions.
-
-    // Note: Use a short timeout because we want UI to update quickly.
-
     try {
-      // We can't easily access the configured ports here without passing them in.
-      // For simplicity, we'll try an HTTP GET to the IP.
-      // If the user didn't specify a port, this might fail if nothing listens on 80.
-      // Ideally we should inject the full URL or check multiple.
-      // Let's try to ping the IP with a timeout.
-      // Even 404 means it's reachable.
+      // Try to connect to port 80, 443, or the user configured dashboard port
+      // Since we don't have easy access to the configured port here without passing it,
+      // we'll try a generic reachability check or we can pass the port in startMonitoring.
+      // For now, let's try a Socket connect to the IP on proper ports.
+      // Detailed logic: Try connecting to the IP.
 
-      final url = Uri.parse('http://$ipAddress');
-      // We'll treat any response (even error status codes) as "Server might be there but checking auth" etc.
-      // But if it throws SocketException, it's offline.
+      // We will try to connect to the IP on port 80 first (common).
+      // If that fails, we might be on a custom port.
+      // Ideally this service should know the port.
 
-      await http.get(url).timeout(const Duration(seconds: 5));
+      // Since we just want to know if "Server is reachable",
+      // ICMP is hard. Socket connect to a likely open port is best.
+      // Let's try port 22 (SSH) as it's a Pi, or 80/443.
 
-      // If we get here, we got a response.
+      // Better approach: resolving the address alone proves DNS/Net (if hostname),
+      // but we have an IP.
+
+      // Let's try to connect to the dashboard port if we could, but here we only have IP.
+      // Let's assume port 80 for general availability, or 22 since it's a Pi.
+      // Let's try 80 first.
+
+      final socket = await Socket.connect(
+        ipAddress,
+        80,
+        timeout: const Duration(seconds: 2),
+      );
+      socket.destroy();
+
       if (!_isOnline) {
         _isOnline = true;
         notifyListeners();
       }
-    } catch (e) {
-      if (_isOnline) {
-        _isOnline = false;
-        notifyListeners();
+    } catch (_) {
+      // If 80 fails, try 22 (SSH) which is almost always open on Pis
+      try {
+        final socket = await Socket.connect(
+          ipAddress,
+          22,
+          timeout: const Duration(seconds: 2),
+        );
+        socket.destroy();
+        if (!_isOnline) {
+          _isOnline = true;
+          notifyListeners();
+        }
+      } catch (e) {
+        if (_isOnline) {
+          _isOnline = false;
+          notifyListeners();
+        }
       }
     }
   }
