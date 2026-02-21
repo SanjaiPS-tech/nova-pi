@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services/settings_service.dart';
 import 'services/connectivity_service.dart';
+
 import 'utils/theme.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/home_screen.dart';

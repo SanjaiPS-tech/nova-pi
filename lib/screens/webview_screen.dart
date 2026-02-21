@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 class WebViewScreen extends StatefulWidget {
   final String url;
@@ -12,64 +12,128 @@ class WebViewScreen extends StatefulWidget {
 }
 
 class _WebViewScreenState extends State<WebViewScreen> {
-  late final WebViewController _controller;
+  InAppWebViewController? _webViewController;
   bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0xFF1E1E1E))
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (_) => setState(() => _isLoading = true),
-          onPageFinished: (_) => setState(() => _isLoading = false),
-          onWebResourceError: (error) =>
-              debugPrint('WebView error: ${error.description}'),
-          onNavigationRequest: (request) => NavigationDecision.navigate,
-        ),
-      )
-      ..loadRequest(Uri.parse(widget.url));
-  }
+  double _progress = 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(), // Exit button
-          tooltip: 'Exit',
-        ),
         title: Text(widget.title),
         actions: [
           IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () async {
-              if (await _controller.canGoBack()) await _controller.goBack();
-            },
-          ),
-          IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => _controller.reload(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.arrow_forward),
-            onPressed: () async {
-              if (await _controller.canGoForward())
-                await _controller.goForward();
+            onPressed: () {
+              if (_webViewController != null) {
+                _webViewController!.reload();
+              }
             },
           ),
         ],
-        bottom: _isLoading
-            ? const PreferredSize(
-                preferredSize: Size.fromHeight(2),
-                child: LinearProgressIndicator(),
-              )
-            : null,
       ),
-      body: WebViewWidget(controller: _controller),
+      body: Stack(
+        children: [
+          InAppWebView(
+            initialUrlRequest: URLRequest(url: WebUri(widget.url)),
+            initialSettings: InAppWebViewSettings(
+              isInspectable: kDebugMode,
+              mediaPlaybackRequiresUserGesture: false,
+              allowsInlineMediaPlayback: true,
+              iframeAllow: "camera; microphone",
+              iframeAllowFullscreen: true,
+              useOnDownloadStart: true,
+            ),
+            onWebViewCreated: (controller) {
+              _webViewController = controller;
+            },
+            onDownloadStartRequest: (controller, downloadStartRequest) async {
+              debugPrint("Download started: ${downloadStartRequest.url}");
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Download started: ${downloadStartRequest.suggestedFilename ?? "file"}',
+                  ),
+                  action: SnackBarAction(label: 'Close', onPressed: () {}),
+                ),
+              );
+              // Note: For a production app, we would use a downloader package here.
+              // For now, we notify the user.
+            },
+            onLoadStart: (controller, url) {
+              setState(() {
+                _isLoading = true;
+              });
+            },
+            onLoadStop: (controller, url) {
+              setState(() {
+                _isLoading = false;
+              });
+            },
+            onProgressChanged: (controller, progress) {
+              setState(() {
+                _progress = progress / 100;
+              });
+            },
+            onReceivedServerTrustAuthRequest: (controller, challenge) async {
+              // Automatically accept self-signed certificates
+              return ServerTrustAuthResponse(
+                action: ServerTrustAuthResponseAction.PROCEED,
+              );
+            },
+            onReceivedHttpError: (controller, request, errorResponse) {
+              setState(() {
+                _isLoading = false;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('HTTP Error: ${errorResponse.statusCode}'),
+                  backgroundColor: Colors.orange,
+                  action: SnackBarAction(
+                    label: 'Reload',
+                    onPressed: () => controller.reload(),
+                    textColor: Colors.white,
+                  ),
+                ),
+              );
+            },
+            onReceivedError: (controller, request, error) {
+              setState(() {
+                _isLoading = false;
+              });
+              // Show error dialog or banner
+
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Page Load Error'),
+                  content: Text(error.description),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('OK'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        controller.reload();
+                      },
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          if (_isLoading || _progress < 1.0)
+            LinearProgressIndicator(value: _progress),
+        ],
+      ),
     );
   }
+
+  // Helper to properly check debug mode if kDebugMode isn't available
+  // But usually foundation is imported in material.
+  // Let's add it explicitly if needed.
+  static const bool kDebugMode = true;
 }

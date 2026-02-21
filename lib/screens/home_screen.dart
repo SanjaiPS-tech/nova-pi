@@ -35,8 +35,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (await Permission.storage.request().isDenied) {
       // Handle denial or show explanation
     }
-    // Manage external storage for Android 11+ (optional, might be restricted)
-    // if (await Permission.manageExternalStorage.request().isDenied) {}
+    // Manage external storage for Android 11+
+    if (await Permission.manageExternalStorage.status.isDenied) {
+      await Permission.manageExternalStorage.request();
+    }
   }
 
   @override
@@ -171,6 +173,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     );
                   },
+                ),
+                _buildGridItem(
+                  context,
+                  icon: Icons.transform,
+                  info: 'Port ${settings.converterPort}',
+                  label: 'File Convertor',
+                  color: Colors.deepOrangeAccent,
+                  onTap: () => _openWebView(
+                    context,
+                    settings.converterUrl,
+                    'File Convertor',
+                  ),
                 ),
               ],
             ),
