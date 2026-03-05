@@ -36,38 +36,68 @@ class ConnectionProfile {
   }
 }
 
+class SavedCredential {
+  String id;
+  String title;
+  String uid;
+  String password;
+
+  SavedCredential({
+    required this.id,
+    required this.title,
+    required this.uid,
+    required this.password,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'uid': uid,
+    'password': password,
+  };
+
+  factory SavedCredential.fromJson(Map<String, dynamic> json) {
+    return SavedCredential(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      uid: json['uid'] as String,
+      password: json['password'] as String,
+    );
+  }
+}
+
 class SettingsService extends ChangeNotifier {
   static const String _keyUserName = 'userName';
   static const String _keyServerIp = 'serverIp';
-  static const String _keyDashboardPort = 'dashboardPort';
-  static const String _keyDashboardScheme = 'dashboardScheme';
-  static const String _keyWebminPort = 'webminPort';
-  static const String _keyWebminScheme = 'webminScheme';
-  static const String _keyPiholePath = 'piholePath';
+  static const String _keyDashboardUrl = 'dashboardUrl';
+  static const String _keyWebminUrl = 'webminUrl';
+  static const String _keyPiholeUrl = 'piholeUrl';
+  static const String _keyFileConvertorUrl = 'file_convertor_url';
   static const String _keyConnections = 'saved_connections';
+  static const String _keyCredentials = 'saved_credentials';
 
   late SharedPreferences _prefs;
   bool _initialized = false;
 
   String _userName = '';
   String _serverIp = '';
-  String _dashboardPort = '3000';
-  String _dashboardScheme = 'http';
-  String _webminPort = '10000';
-  String _webminScheme = 'https';
-  String _piholePath = '/admin/login';
+  String _dashboardUrl = 'http://192.168.1.100:3000/login';
+  String _webminUrl = 'https://192.168.1.100:10000';
+  String _piholeUrl = 'http://192.168.1.100/admin/login';
+  String _fileConvertorUrl = 'http://pdf.home/';
 
   List<ConnectionProfile> _connections = [];
+  List<SavedCredential> _credentials = [];
 
   bool get initialized => _initialized;
   String get userName => _userName;
   String get serverIp => _serverIp;
-  String get dashboardPort => _dashboardPort;
-  String get dashboardScheme => _dashboardScheme;
-  String get webminPort => _webminPort;
-  String get webminScheme => _webminScheme;
-  String get piholePath => _piholePath;
+  String get dashboardUrl => _dashboardUrl;
+  String get webminUrl => _webminUrl;
+  String get piholeUrl => _piholeUrl;
+  String get fileConvertorUrl => _fileConvertorUrl;
   List<ConnectionProfile> get connections => _connections;
+  List<SavedCredential> get credentials => _credentials;
 
   bool get isConfigured => _userName.isNotEmpty && _serverIp.isNotEmpty;
 
@@ -81,11 +111,13 @@ class SettingsService extends ChangeNotifier {
   void _loadSettings() {
     _userName = _prefs.getString(_keyUserName) ?? '';
     _serverIp = _prefs.getString(_keyServerIp) ?? '';
-    _dashboardPort = _prefs.getString(_keyDashboardPort) ?? '3000';
-    _dashboardScheme = _prefs.getString(_keyDashboardScheme) ?? 'http';
-    _webminPort = _prefs.getString(_keyWebminPort) ?? '10000';
-    _webminScheme = _prefs.getString(_keyWebminScheme) ?? 'https';
-    _piholePath = _prefs.getString(_keyPiholePath) ?? '/admin/login';
+    _dashboardUrl =
+        _prefs.getString(_keyDashboardUrl) ?? 'http://$_serverIp:3000/login';
+    _webminUrl = _prefs.getString(_keyWebminUrl) ?? 'https://$_serverIp:10000';
+    _piholeUrl =
+        _prefs.getString(_keyPiholeUrl) ?? 'http://$_serverIp/admin/login';
+    _fileConvertorUrl =
+        _prefs.getString(_keyFileConvertorUrl) ?? 'http://pdf.home/';
 
     final connString = _prefs.getString(_keyConnections);
     if (connString != null) {
@@ -97,41 +129,47 @@ class SettingsService extends ChangeNotifier {
         _connections = [];
       }
     }
+
+    final credString = _prefs.getString(_keyCredentials);
+    if (credString != null) {
+      try {
+        final List<dynamic> list = jsonDecode(credString);
+        _credentials = list.map((e) => SavedCredential.fromJson(e)).toList();
+      } catch (e) {
+        debugPrint('Error loading credentials: $e');
+        _credentials = [];
+      }
+    }
   }
 
   Future<void> saveSettings({
     required String userName,
     required String serverIp,
-    String? dashboardPort,
-    String? dashboardScheme,
-    String? webminPort,
-    String? webminScheme,
-    String? piholePath,
+    String? dashboardUrl,
+    String? webminUrl,
+    String? piholeUrl,
+    String? fileConvertorUrl,
   }) async {
     _userName = userName;
     _serverIp = serverIp;
     await _prefs.setString(_keyUserName, userName);
     await _prefs.setString(_keyServerIp, serverIp);
 
-    if (dashboardPort != null) {
-      _dashboardPort = dashboardPort;
-      await _prefs.setString(_keyDashboardPort, dashboardPort);
+    if (dashboardUrl != null) {
+      _dashboardUrl = dashboardUrl;
+      await _prefs.setString(_keyDashboardUrl, dashboardUrl);
     }
-    if (dashboardScheme != null) {
-      _dashboardScheme = dashboardScheme;
-      await _prefs.setString(_keyDashboardScheme, dashboardScheme);
+    if (webminUrl != null) {
+      _webminUrl = webminUrl;
+      await _prefs.setString(_keyWebminUrl, webminUrl);
     }
-    if (webminPort != null) {
-      _webminPort = webminPort;
-      await _prefs.setString(_keyWebminPort, webminPort);
+    if (piholeUrl != null) {
+      _piholeUrl = piholeUrl;
+      await _prefs.setString(_keyPiholeUrl, piholeUrl);
     }
-    if (webminScheme != null) {
-      _webminScheme = webminScheme;
-      await _prefs.setString(_keyWebminScheme, webminScheme);
-    }
-    if (piholePath != null) {
-      _piholePath = piholePath;
-      await _prefs.setString(_keyPiholePath, piholePath);
+    if (fileConvertorUrl != null) {
+      _fileConvertorUrl = fileConvertorUrl;
+      await _prefs.setString(_keyFileConvertorUrl, fileConvertorUrl);
     }
 
     notifyListeners();
@@ -156,25 +194,39 @@ class SettingsService extends ChangeNotifier {
     await _prefs.setString(_keyConnections, data);
   }
 
-  Future<void> resetDefaults() async {
-    _dashboardPort = '3000';
-    _dashboardScheme = 'http';
-    _webminPort = '10000';
-    _webminScheme = 'https';
-    _piholePath = '/admin/login';
-
-    await _prefs.setString(_keyDashboardPort, _dashboardPort);
-    await _prefs.setString(_keyDashboardScheme, _dashboardScheme);
-    await _prefs.setString(_keyWebminPort, _webminPort);
-    await _prefs.setString(_keyWebminScheme, _webminScheme);
-    await _prefs.setString(_keyPiholePath, _piholePath);
-
+  Future<void> saveCredential(SavedCredential credential) async {
+    final index = _credentials.indexWhere((c) => c.id == credential.id);
+    if (index >= 0) {
+      _credentials[index] = credential;
+    } else {
+      _credentials.add(credential);
+    }
+    await _saveCredentials();
     notifyListeners();
   }
 
-  // Getters for full URLs
-  String get dashboardUrl =>
-      '$_dashboardScheme://$_serverIp:$_dashboardPort/login';
-  String get webminUrl => '$_webminScheme://$_serverIp:$_webminPort';
-  String get piholeUrl => 'http://$_serverIp$_piholePath';
+  Future<void> removeCredential(String id) async {
+    _credentials.removeWhere((c) => c.id == id);
+    await _saveCredentials();
+    notifyListeners();
+  }
+
+  Future<void> _saveCredentials() async {
+    final String data = jsonEncode(
+      _credentials.map((e) => e.toJson()).toList(),
+    );
+    await _prefs.setString(_keyCredentials, data);
+  }
+
+  Future<void> resetDefaults() async {
+    _dashboardUrl = 'http://$_serverIp:3000/login';
+    _webminUrl = 'https://$_serverIp:10000';
+    _piholeUrl = 'http://$_serverIp/admin/login';
+
+    await _prefs.setString(_keyDashboardUrl, _dashboardUrl);
+    await _prefs.setString(_keyWebminUrl, _webminUrl);
+    await _prefs.setString(_keyPiholeUrl, _piholeUrl);
+
+    notifyListeners();
+  }
 }

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../services/settings_service.dart';
 import '../services/connectivity_service.dart';
+import '../utils/theme.dart';
 import 'settings_screen.dart';
 import 'webview_screen.dart';
 import 'file_explorer_screen.dart';
@@ -18,7 +21,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Start monitoring connectivity when Home Screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPermissions();
       final settings = Provider.of<SettingsService>(context, listen: false);
@@ -30,22 +32,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _checkPermissions() async {
-    // Request storage permissions
-    // On Android 13+, usage is different (images/video/audio), but generic 'storage' is good baseline.
-    if (await Permission.storage.request().isDenied) {
-      // Handle denial or show explanation
-    }
-    // Manage external storage for Android 11+
+    if (await Permission.storage.request().isDenied) {}
     if (await Permission.manageExternalStorage.status.isDenied) {
       await Permission.manageExternalStorage.request();
     }
-  }
-
-  @override
-  void dispose() {
-    // We don't stop monitoring here because we might want it to continue if settings is pushed?
-    // But usually we should keep it running or stop. Let's keep running.
-    super.dispose();
   }
 
   void _openWebView(BuildContext context, String url, String title) {
@@ -62,168 +52,299 @@ class _HomeScreenState extends State<HomeScreen> {
     final connectivity = Provider.of<ConnectivityService>(context);
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Nova Control'),
+        title: Text(
+          'NOVA',
+          style: TextStyle(
+            letterSpacing: 4,
+            fontWeight: FontWeight.w900,
+            color: Colors.white.withOpacity(0.9),
+          ),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings),
             onPressed: () {
               Navigator.of(
                 context,
               ).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
             },
+            icon: const Icon(Icons.settings_outlined),
           ),
+          const SizedBox(width: 8),
         ],
       ),
-      body: Column(
-        children: [
-          // Connection Status Indicator
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            margin: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardTheme.color,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: connectivity.isOnline
-                    ? Colors.green
-                    : Colors.red.withOpacity(0.5),
-                width: 2,
-              ),
-            ),
-            child: Row(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              NovaTheme.background,
+              NovaTheme.background.withBlue(60),
+              NovaTheme.background,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: connectivity.isOnline ? Colors.green : Colors.red,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color:
-                            (connectivity.isOnline ? Colors.green : Colors.red)
-                                .withOpacity(0.4),
-                        blurRadius: 6,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    connectivity.isOnline
-                        ? 'Connected to ${settings.serverIp}'
-                        : 'Offline - Checking ${settings.serverIp}...',
-                    style: TextStyle(
-                      color: connectivity.isOnline ? Colors.green : Colors.red,
-                      fontWeight: FontWeight.bold,
+                _buildHeader(settings, connectivity),
+                const SizedBox(height: 24),
+                StaggeredGrid.count(
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
+                  children: [
+                    StaggeredGridTile.count(
+                      crossAxisCellCount: 4,
+                      mainAxisCellCount: 1.5,
+                      child: _buildBentoItem(
+                        icon: Icons.dashboard_rounded,
+                        label: 'Dashboard',
+                        info: 'Main Server Control',
+                        color: NovaTheme.primary,
+                        onTap: () => _openWebView(
+                          context,
+                          settings.dashboardUrl,
+                          'Dashboard',
+                        ),
+                      ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1),
                     ),
-                  ),
+                    StaggeredGridTile.count(
+                      crossAxisCellCount: 2,
+                      mainAxisCellCount: 2,
+                      child:
+                          _buildBentoItem(
+                                icon: Icons.terminal_rounded,
+                                label: 'Webmin',
+                                info: 'System Admin',
+                                color: Colors.purpleAccent,
+                                onTap: () => _openWebView(
+                                  context,
+                                  settings.webminUrl,
+                                  'Webmin',
+                                ),
+                              )
+                              .animate()
+                              .fadeIn(duration: 500.ms, delay: 100.ms)
+                              .slideY(begin: 0.1),
+                    ),
+                    StaggeredGridTile.count(
+                      crossAxisCellCount: 2,
+                      mainAxisCellCount: 1,
+                      child:
+                          _buildBentoItem(
+                                icon: Icons.folder_rounded,
+                                label: 'Files',
+                                info: 'SMB / SFTP',
+                                color: Colors.amber,
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          const FileExplorerScreen(),
+                                    ),
+                                  );
+                                },
+                              )
+                              .animate()
+                              .fadeIn(duration: 600.ms, delay: 200.ms)
+                              .slideY(begin: 0.1),
+                    ),
+                    StaggeredGridTile.count(
+                      crossAxisCellCount: 2,
+                      mainAxisCellCount: 1,
+                      child:
+                          _buildBentoItem(
+                                icon: Icons.shield_rounded,
+                                label: 'Pi-hole',
+                                info: 'Ad Blocker',
+                                color: Colors.redAccent,
+                                onTap: () => _openWebView(
+                                  context,
+                                  settings.piholeUrl,
+                                  'Pi-hole',
+                                ),
+                              )
+                              .animate()
+                              .fadeIn(duration: 700.ms, delay: 300.ms)
+                              .slideY(begin: 0.1),
+                    ),
+                    StaggeredGridTile.count(
+                      crossAxisCellCount: 4,
+                      mainAxisCellCount: 1,
+                      child:
+                          _buildBentoItem(
+                                icon: Icons.insert_drive_file_rounded,
+                                label: 'File Convertor',
+                                info: 'Convert Docs & PDFs',
+                                color: Colors.orangeAccent,
+                                onTap: () => _openWebView(
+                                  context,
+                                  settings.fileConvertorUrl,
+                                  'File Convertor',
+                                ),
+                              )
+                              .animate()
+                              .fadeIn(duration: 800.ms, delay: 400.ms)
+                              .slideY(begin: 0.1),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-
-          Expanded(
-            child: GridView.count(
-              crossAxisCount: 2,
-              padding: const EdgeInsets.all(16),
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              children: [
-                _buildGridItem(
-                  context,
-                  icon: Icons.dashboard,
-                  info: 'Port ${settings.dashboardPort}',
-                  label: 'Dashboard',
-                  color: Colors.blueAccent,
-                  onTap: () =>
-                      _openWebView(context, settings.dashboardUrl, 'Dashboard'),
-                ),
-                _buildGridItem(
-                  context,
-                  icon: Icons.terminal,
-                  info: 'Port ${settings.webminPort}',
-                  label: 'Webmin',
-                  color: Colors.purpleAccent,
-                  onTap: () =>
-                      _openWebView(context, settings.webminUrl, 'Webmin'),
-                ),
-                _buildGridItem(
-                  context,
-                  icon: Icons.shield,
-                  info: settings.piholePath,
-                  label: 'Pi-hole',
-                  color: Colors.redAccent,
-                  onTap: () =>
-                      _openWebView(context, settings.piholeUrl, 'Pi-hole'),
-                ),
-                _buildGridItem(
-                  context,
-                  icon: Icons.folder,
-                  info: 'SMB / SFTP',
-                  label: 'File Explorer',
-                  color: Colors.amber,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const FileExplorerScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.of(
-            context,
-          ).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
-        },
-        child: const Icon(Icons.settings),
+        ),
       ),
     );
   }
 
-  Widget _buildGridItem(
-    BuildContext context, {
+  Widget _buildHeader(
+    SettingsService settings,
+    ConnectivityService connectivity,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Welcome back,',
+          style: TextStyle(
+            color: NovaTheme.textSecondary,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          settings.userName,
+          style: const TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -1,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: connectivity.isOnline
+                ? NovaTheme.secondary.withOpacity(0.1)
+                : Colors.red.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: connectivity.isOnline
+                  ? NovaTheme.secondary.withOpacity(0.2)
+                  : Colors.red.withOpacity(0.2),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: connectivity.isOnline
+                      ? NovaTheme.secondary
+                      : Colors.red,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color:
+                          (connectivity.isOnline
+                                  ? NovaTheme.secondary
+                                  : Colors.red)
+                              .withOpacity(0.5),
+                      blurRadius: 8,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                connectivity.isOnline ? 'System Online' : 'System Offline',
+                style: TextStyle(
+                  color: connectivity.isOnline
+                      ? NovaTheme.secondary
+                      : Colors.red,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              if (connectivity.isOnline) ...[
+                const SizedBox(width: 8),
+                Text(
+                  '• ${settings.serverIp}',
+                  style: TextStyle(
+                    color: NovaTheme.secondary.withOpacity(0.7),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    ).animate().fadeIn(duration: 600.ms).slideX(begin: -0.1);
+  }
+
+  Widget _buildBentoItem({
     required IconData icon,
     required String label,
     required String info,
     required Color color,
     required VoidCallback onTap,
   }) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 48, color: color),
-              const SizedBox(height: 16),
-              Text(
-                label,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                info,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.grey),
-                textAlign: TextAlign.center,
-              ),
-            ],
+    return Container(
+      decoration: BoxDecoration(
+        color: NovaTheme.surface.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withOpacity(0.05), width: 1),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(icon, color: color, size: 28),
+                ),
+                const Spacer(),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  info,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: NovaTheme.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ),
       ),
