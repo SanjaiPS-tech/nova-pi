@@ -42,23 +42,9 @@ class _WebViewScreenState extends State<WebViewScreen> {
               allowsInlineMediaPlayback: true,
               iframeAllow: "camera; microphone",
               iframeAllowFullscreen: true,
-              useOnDownloadStart: true,
             ),
             onWebViewCreated: (controller) {
               _webViewController = controller;
-            },
-            onDownloadStartRequest: (controller, downloadStartRequest) async {
-              debugPrint("Download started: ${downloadStartRequest.url}");
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Download started: ${downloadStartRequest.suggestedFilename ?? "file"}',
-                  ),
-                  action: SnackBarAction(label: 'Close', onPressed: () {}),
-                ),
-              );
-              // Note: For a production app, we would use a downloader package here.
-              // For now, we notify the user.
             },
             onLoadStart: (controller, url) {
               setState(() {

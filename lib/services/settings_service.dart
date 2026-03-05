@@ -44,8 +44,6 @@ class SettingsService extends ChangeNotifier {
   static const String _keyWebminPort = 'webminPort';
   static const String _keyWebminScheme = 'webminScheme';
   static const String _keyPiholePath = 'piholePath';
-  static const String _keyConverterPort = 'converterPort';
-  static const String _keyConverterScheme = 'converterScheme';
   static const String _keyConnections = 'saved_connections';
 
   late SharedPreferences _prefs;
@@ -58,8 +56,6 @@ class SettingsService extends ChangeNotifier {
   String _webminPort = '10000';
   String _webminScheme = 'https';
   String _piholePath = '/admin/login';
-  String _converterPort = '8080';
-  String _converterScheme = 'http';
 
   List<ConnectionProfile> _connections = [];
 
@@ -71,8 +67,6 @@ class SettingsService extends ChangeNotifier {
   String get webminPort => _webminPort;
   String get webminScheme => _webminScheme;
   String get piholePath => _piholePath;
-  String get converterPort => _converterPort;
-  String get converterScheme => _converterScheme;
   List<ConnectionProfile> get connections => _connections;
 
   bool get isConfigured => _userName.isNotEmpty && _serverIp.isNotEmpty;
@@ -92,8 +86,6 @@ class SettingsService extends ChangeNotifier {
     _webminPort = _prefs.getString(_keyWebminPort) ?? '10000';
     _webminScheme = _prefs.getString(_keyWebminScheme) ?? 'https';
     _piholePath = _prefs.getString(_keyPiholePath) ?? '/admin/login';
-    _converterPort = _prefs.getString(_keyConverterPort) ?? '8080';
-    _converterScheme = _prefs.getString(_keyConverterScheme) ?? 'http';
 
     final connString = _prefs.getString(_keyConnections);
     if (connString != null) {
@@ -115,8 +107,6 @@ class SettingsService extends ChangeNotifier {
     String? webminPort,
     String? webminScheme,
     String? piholePath,
-    String? converterPort,
-    String? converterScheme,
   }) async {
     _userName = userName;
     _serverIp = serverIp;
@@ -142,14 +132,6 @@ class SettingsService extends ChangeNotifier {
     if (piholePath != null) {
       _piholePath = piholePath;
       await _prefs.setString(_keyPiholePath, piholePath);
-    }
-    if (converterPort != null) {
-      _converterPort = converterPort;
-      await _prefs.setString(_keyConverterPort, converterPort);
-    }
-    if (converterScheme != null) {
-      _converterScheme = converterScheme;
-      await _prefs.setString(_keyConverterScheme, converterScheme);
     }
 
     notifyListeners();
@@ -180,16 +162,12 @@ class SettingsService extends ChangeNotifier {
     _webminPort = '10000';
     _webminScheme = 'https';
     _piholePath = '/admin/login';
-    _converterPort = '8080';
-    _converterScheme = 'http';
 
     await _prefs.setString(_keyDashboardPort, _dashboardPort);
     await _prefs.setString(_keyDashboardScheme, _dashboardScheme);
     await _prefs.setString(_keyWebminPort, _webminPort);
     await _prefs.setString(_keyWebminScheme, _webminScheme);
     await _prefs.setString(_keyPiholePath, _piholePath);
-    await _prefs.setString(_keyConverterPort, _converterPort);
-    await _prefs.setString(_keyConverterScheme, _converterScheme);
 
     notifyListeners();
   }
@@ -199,5 +177,4 @@ class SettingsService extends ChangeNotifier {
       '$_dashboardScheme://$_serverIp:$_dashboardPort/login';
   String get webminUrl => '$_webminScheme://$_serverIp:$_webminPort';
   String get piholeUrl => 'http://$_serverIp$_piholePath';
-  String get converterUrl => '$_converterScheme://$_serverIp:$_converterPort';
 }

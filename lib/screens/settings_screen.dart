@@ -17,11 +17,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _dashboardPortController;
   late TextEditingController _webminPortController;
   late TextEditingController _piholePathController;
-  late TextEditingController _converterPortController;
 
   String _dashboardScheme = 'http';
   String _webminScheme = 'https';
-  String _converterScheme = 'http';
 
   @override
   void initState() {
@@ -34,12 +32,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     _webminPortController = TextEditingController(text: settings.webminPort);
     _piholePathController = TextEditingController(text: settings.piholePath);
-    _converterPortController = TextEditingController(
-      text: settings.converterPort,
-    );
     _dashboardScheme = settings.dashboardScheme;
     _webminScheme = settings.webminScheme;
-    _converterScheme = settings.converterScheme;
   }
 
   @override
@@ -49,7 +43,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _dashboardPortController.dispose();
     _webminPortController.dispose();
     _piholePathController.dispose();
-    _converterPortController.dispose();
     super.dispose();
   }
 
@@ -64,8 +57,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         webminPort: _webminPortController.text.trim(),
         webminScheme: _webminScheme,
         piholePath: _piholePathController.text.trim(),
-        converterPort: _converterPortController.text.trim(),
-        converterScheme: _converterScheme,
       );
       if (mounted) {
         ScaffoldMessenger.of(
@@ -83,10 +74,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _dashboardPortController.text = settings.dashboardPort;
       _webminPortController.text = settings.webminPort;
       _piholePathController.text = settings.piholePath;
-      _converterPortController.text = settings.converterPort;
       _dashboardScheme = settings.dashboardScheme;
       _webminScheme = settings.webminScheme;
-      _converterScheme = settings.converterScheme;
     });
     if (mounted) {
       ScaffoldMessenger.of(
@@ -211,43 +200,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               TextFormField(
                 controller: _piholePathController,
                 decoration: const InputDecoration(labelText: 'Pi-hole Path'),
-              ),
-              const SizedBox(height: 16),
-              // Converter Configuration
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  SizedBox(
-                    width: 100,
-                    child: DropdownButtonFormField<String>(
-                      value: _converterScheme,
-                      decoration: const InputDecoration(labelText: 'Protocol'),
-                      items: ['http', 'https']
-                          .map(
-                            (e) => DropdownMenuItem(
-                              value: e,
-                              child: Text(e.toUpperCase()),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (val) {
-                        setState(() {
-                          _converterScheme = val!;
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _converterPortController,
-                      decoration: const InputDecoration(
-                        labelText: 'Converter Port',
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                ],
               ),
               const SizedBox(height: 32),
               ElevatedButton(
