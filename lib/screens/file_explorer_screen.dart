@@ -139,10 +139,11 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
       });
     } catch (e) {
       debugPrint('Remote list error: $e');
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
   }
 
@@ -547,7 +548,7 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: connections.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final profile = connections[index];
         return Container(
@@ -590,8 +591,9 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
       itemBuilder: (context, index) {
         if (index == 0) return _buildBackItem(false);
         final file = _remoteFiles[index - 1];
-        if (file.filename == '.' || file.filename == '..')
+        if (file.filename == '.' || file.filename == '..') {
           return const SizedBox.shrink();
+        }
         final isDir = file.attr.isDirectory;
         final fullPath = _currentRemotePath.endsWith('/')
             ? '$_currentRemotePath${file.filename}'

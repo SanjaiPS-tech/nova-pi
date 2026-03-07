@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'services/settings_service.dart';
 import 'services/connectivity_service.dart';
@@ -9,6 +11,10 @@ import 'screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    // Mobile specific init if needed, usually handled by plugin
+  }
 
   final settingsService = SettingsService();
   await settingsService.init();

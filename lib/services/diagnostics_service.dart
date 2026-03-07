@@ -95,18 +95,33 @@ class _DiagnosticsSheetState extends State<_DiagnosticsSheet> {
     String getHost(String url) => Uri.tryParse(url)?.host ?? '';
 
     final targets = [
-      {'name': 'Dashboard', 'url': s.dashboardUrl, 'port': 80},
-      {'name': 'Webmin', 'url': s.webminUrl, 'port': 10000},
-      {'name': 'Pi-hole', 'url': s.piholeUrl, 'port': 80},
-      {'name': 'File Convertor', 'url': s.fileConvertorUrl, 'port': 80},
+      {'name': 'Dashboard', 'url': s.dashboardUrl1, 'port': 80},
+      {'name': 'Webmin', 'url': s.webminUrl1, 'port': 10000},
+      {'name': 'Pi-hole', 'url': s.piholeUrl1, 'port': 80},
+      {'name': 'File Convertor', 'url': s.fileConvertorUrl1, 'port': 80},
+      {
+        'name': 'SSH Terminal',
+        'url': 'http://\${s.sshHost}',
+        'port': s.sshPort,
+      },
     ];
 
     for (var t in targets) {
-      final url = t['url'] as String;
-      if (url.isEmpty) continue;
+      final name = t['name'] as String;
+      final portFallback = t['port'] as int;
 
-      final host = getHost(url);
-      final port = getPort(url, t['port'] as int);
+      String host;
+      int port;
+
+      if (name == 'SSH Terminal') {
+        host = s.sshHost;
+        port = s.sshPort;
+      } else {
+        final url = t['url'] as String;
+        if (url.isEmpty) continue;
+        host = getHost(url);
+        port = getPort(url, portFallback);
+      }
 
       final res = await d.testConnection(host, port);
       if (mounted) {

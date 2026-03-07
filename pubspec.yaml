@@ -23,6 +23,7 @@ dependencies:
   provider: ^6.1.5+1
   shared_preferences: ^2.5.4
   url_launcher: ^6.3.2
+  xterm: ^4.0.0
 
 dev_dependencies:
   flutter_test:

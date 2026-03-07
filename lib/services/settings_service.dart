@@ -85,10 +85,18 @@ class SavedCredential {
 class SettingsService extends ChangeNotifier {
   static const String _keyUserName = 'userName';
   static const String _keyServerIp = 'serverIp';
-  static const String _keyDashboardUrl = 'dashboardUrl';
-  static const String _keyWebminUrl = 'webminUrl';
-  static const String _keyPiholeUrl = 'piholeUrl';
-  static const String _keyFileConvertorUrl = 'file_convertor_url';
+  static const String _keyDashboardUrl1 = 'dashboardUrl1';
+  static const String _keyDashboardUrl2 = 'dashboardUrl2';
+  static const String _keyWebminUrl1 = 'webminUrl1';
+  static const String _keyWebminUrl2 = 'webminUrl2';
+  static const String _keyPiholeUrl1 = 'piholeUrl1';
+  static const String _keyPiholeUrl2 = 'piholeUrl2';
+  static const String _keyFileConvertorUrl1 = 'file_convertor_url1';
+  static const String _keyFileConvertorUrl2 = 'file_convertor_url2';
+  static const String _keySshHost = 'sshHost';
+  static const String _keySshPort = 'sshPort';
+  static const String _keySshUsername = 'sshUsername';
+  static const String _keySshPassword = 'sshPassword';
   static const String _keyConnections = 'saved_connections';
   static const String _keyCredentials = 'saved_credentials';
 
@@ -97,10 +105,18 @@ class SettingsService extends ChangeNotifier {
 
   String _userName = '';
   String _serverIp = '';
-  String _dashboardUrl = 'http://192.168.1.100:3000/login';
-  String _webminUrl = 'https://192.168.1.100:10000';
-  String _piholeUrl = 'http://192.168.1.100/admin/login';
-  String _fileConvertorUrl = 'http://pdf.home/';
+  String _dashboardUrl1 = 'http://{serverIp}:3000/login';
+  String _dashboardUrl2 = 'http://grafana.home/';
+  String _webminUrl1 = 'https://{serverIp}:10000';
+  String _webminUrl2 = '';
+  String _piholeUrl1 = 'http://pi.home/';
+  String _piholeUrl2 = '';
+  String _fileConvertorUrl1 = 'http://pdf.home/';
+  String _fileConvertorUrl2 = '';
+  String _sshHost = 'nova';
+  int _sshPort = 22;
+  String _sshUsername = 'rebel';
+  String _sshPassword = '123';
 
   List<ConnectionProfile> _connections = [];
   List<SavedCredential> _credentials = [];
@@ -108,10 +124,23 @@ class SettingsService extends ChangeNotifier {
   bool get initialized => _initialized;
   String get userName => _userName;
   String get serverIp => _serverIp;
-  String get dashboardUrl => _dashboardUrl;
-  String get webminUrl => _webminUrl;
-  String get piholeUrl => _piholeUrl;
-  String get fileConvertorUrl => _fileConvertorUrl;
+  String get dashboardUrl1 =>
+      _dashboardUrl1.replaceAll('{serverIp}', _serverIp);
+  String get dashboardUrl2 =>
+      _dashboardUrl2.replaceAll('{serverIp}', _serverIp);
+  String get webminUrl1 => _webminUrl1.replaceAll('{serverIp}', _serverIp);
+  String get webminUrl2 => _webminUrl2.replaceAll('{serverIp}', _serverIp);
+  String get piholeUrl1 => _piholeUrl1.replaceAll('{serverIp}', _serverIp);
+  String get piholeUrl2 => _piholeUrl2.replaceAll('{serverIp}', _serverIp);
+  String get fileConvertorUrl1 =>
+      _fileConvertorUrl1.replaceAll('{serverIp}', _serverIp);
+  String get fileConvertorUrl2 =>
+      _fileConvertorUrl2.replaceAll('{serverIp}', _serverIp);
+  String get sshHost => _sshHost.isEmpty ? _serverIp : _sshHost;
+  int get sshPort => _sshPort;
+  String get sshUsername => _sshUsername;
+  String get sshPassword => _sshPassword;
+
   List<ConnectionProfile> get connections => _connections;
   List<SavedCredential> get credentials => _credentials;
 
@@ -127,13 +156,22 @@ class SettingsService extends ChangeNotifier {
   void _loadSettings() {
     _userName = _prefs.getString(_keyUserName) ?? '';
     _serverIp = _prefs.getString(_keyServerIp) ?? '';
-    _dashboardUrl =
-        _prefs.getString(_keyDashboardUrl) ?? 'http://$_serverIp:3000/login';
-    _webminUrl = _prefs.getString(_keyWebminUrl) ?? 'https://$_serverIp:10000';
-    _piholeUrl =
-        _prefs.getString(_keyPiholeUrl) ?? 'http://$_serverIp/admin/login';
-    _fileConvertorUrl =
-        _prefs.getString(_keyFileConvertorUrl) ?? 'http://pdf.home/';
+    _dashboardUrl1 =
+        _prefs.getString(_keyDashboardUrl1) ?? 'http://{serverIp}:3000/login';
+    _dashboardUrl2 =
+        _prefs.getString(_keyDashboardUrl2) ?? 'http://grafana.home/';
+    _webminUrl1 =
+        _prefs.getString(_keyWebminUrl1) ?? 'https://{serverIp}:10000';
+    _webminUrl2 = _prefs.getString(_keyWebminUrl2) ?? '';
+    _piholeUrl1 = _prefs.getString(_keyPiholeUrl1) ?? 'http://pi.home/';
+    _piholeUrl2 = _prefs.getString(_keyPiholeUrl2) ?? '';
+    _fileConvertorUrl1 =
+        _prefs.getString(_keyFileConvertorUrl1) ?? 'http://pdf.home/';
+    _fileConvertorUrl2 = _prefs.getString(_keyFileConvertorUrl2) ?? '';
+    _sshHost = _prefs.getString(_keySshHost) ?? 'nova';
+    _sshPort = _prefs.getInt(_keySshPort) ?? 22;
+    _sshUsername = _prefs.getString(_keySshUsername) ?? 'rebel';
+    _sshPassword = _prefs.getString(_keySshPassword) ?? '123';
 
     final connString = _prefs.getString(_keyConnections);
     if (connString != null) {
@@ -161,31 +199,71 @@ class SettingsService extends ChangeNotifier {
   Future<void> saveSettings({
     required String userName,
     required String serverIp,
-    String? dashboardUrl,
-    String? webminUrl,
-    String? piholeUrl,
-    String? fileConvertorUrl,
+    String? dashboardUrl1,
+    String? dashboardUrl2,
+    String? webminUrl1,
+    String? webminUrl2,
+    String? piholeUrl1,
+    String? piholeUrl2,
+    String? fileConvertorUrl1,
+    String? fileConvertorUrl2,
+    String? sshHost,
+    int? sshPort,
+    String? sshUsername,
+    String? sshPassword,
   }) async {
     _userName = userName;
     _serverIp = serverIp;
     await _prefs.setString(_keyUserName, userName);
     await _prefs.setString(_keyServerIp, serverIp);
 
-    if (dashboardUrl != null) {
-      _dashboardUrl = dashboardUrl;
-      await _prefs.setString(_keyDashboardUrl, dashboardUrl);
+    if (dashboardUrl1 != null) {
+      _dashboardUrl1 = dashboardUrl1;
+      await _prefs.setString(_keyDashboardUrl1, dashboardUrl1);
     }
-    if (webminUrl != null) {
-      _webminUrl = webminUrl;
-      await _prefs.setString(_keyWebminUrl, webminUrl);
+    if (dashboardUrl2 != null) {
+      _dashboardUrl2 = dashboardUrl2;
+      await _prefs.setString(_keyDashboardUrl2, dashboardUrl2);
     }
-    if (piholeUrl != null) {
-      _piholeUrl = piholeUrl;
-      await _prefs.setString(_keyPiholeUrl, piholeUrl);
+    if (webminUrl1 != null) {
+      _webminUrl1 = webminUrl1;
+      await _prefs.setString(_keyWebminUrl1, webminUrl1);
     }
-    if (fileConvertorUrl != null) {
-      _fileConvertorUrl = fileConvertorUrl;
-      await _prefs.setString(_keyFileConvertorUrl, fileConvertorUrl);
+    if (webminUrl2 != null) {
+      _webminUrl2 = webminUrl2;
+      await _prefs.setString(_keyWebminUrl2, webminUrl2);
+    }
+    if (piholeUrl1 != null) {
+      _piholeUrl1 = piholeUrl1;
+      await _prefs.setString(_keyPiholeUrl1, piholeUrl1);
+    }
+    if (piholeUrl2 != null) {
+      _piholeUrl2 = piholeUrl2;
+      await _prefs.setString(_keyPiholeUrl2, piholeUrl2);
+    }
+    if (fileConvertorUrl1 != null) {
+      _fileConvertorUrl1 = fileConvertorUrl1;
+      await _prefs.setString(_keyFileConvertorUrl1, fileConvertorUrl1);
+    }
+    if (fileConvertorUrl2 != null) {
+      _fileConvertorUrl2 = fileConvertorUrl2;
+      await _prefs.setString(_keyFileConvertorUrl2, fileConvertorUrl2);
+    }
+    if (sshHost != null) {
+      _sshHost = sshHost;
+      await _prefs.setString(_keySshHost, sshHost);
+    }
+    if (sshPort != null) {
+      _sshPort = sshPort;
+      await _prefs.setInt(_keySshPort, sshPort);
+    }
+    if (sshUsername != null) {
+      _sshUsername = sshUsername;
+      await _prefs.setString(_keySshUsername, sshUsername);
+    }
+    if (sshPassword != null) {
+      _sshPassword = sshPassword;
+      await _prefs.setString(_keySshPassword, sshPassword);
     }
 
     notifyListeners();
@@ -235,13 +313,31 @@ class SettingsService extends ChangeNotifier {
   }
 
   Future<void> resetDefaults() async {
-    _dashboardUrl = 'http://$_serverIp:3000/login';
-    _webminUrl = 'https://$_serverIp:10000';
-    _piholeUrl = 'http://$_serverIp/admin/login';
+    _dashboardUrl1 = 'http://{serverIp}:3000/login';
+    _dashboardUrl2 = 'http://grafana.home/';
+    _webminUrl1 = 'https://{serverIp}:10000';
+    _webminUrl2 = '';
+    _piholeUrl1 = 'http://pi.home/';
+    _piholeUrl2 = '';
+    _fileConvertorUrl1 = 'http://pdf.home/';
+    _fileConvertorUrl2 = '';
+    _sshHost = 'nova';
+    _sshPort = 22;
+    _sshUsername = 'rebel';
+    _sshPassword = '123';
 
-    await _prefs.setString(_keyDashboardUrl, _dashboardUrl);
-    await _prefs.setString(_keyWebminUrl, _webminUrl);
-    await _prefs.setString(_keyPiholeUrl, _piholeUrl);
+    await _prefs.setString(_keyDashboardUrl1, _dashboardUrl1);
+    await _prefs.setString(_keyDashboardUrl2, _dashboardUrl2);
+    await _prefs.setString(_keyWebminUrl1, _webminUrl1);
+    await _prefs.setString(_keyWebminUrl2, _webminUrl2);
+    await _prefs.setString(_keyPiholeUrl1, _piholeUrl1);
+    await _prefs.setString(_keyPiholeUrl2, _piholeUrl2);
+    await _prefs.setString(_keyFileConvertorUrl1, _fileConvertorUrl1);
+    await _prefs.setString(_keyFileConvertorUrl2, _fileConvertorUrl2);
+    await _prefs.setString(_keySshHost, _sshHost);
+    await _prefs.setInt(_keySshPort, _sshPort);
+    await _prefs.setString(_keySshUsername, _sshUsername);
+    await _prefs.setString(_keySshPassword, _sshPassword);
 
     notifyListeners();
   }

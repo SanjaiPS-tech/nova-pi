@@ -16,33 +16,66 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
-  late TextEditingController _dashboardUrlController;
-  late TextEditingController _webminUrlController;
-  late TextEditingController _piholeUrlController;
-  late TextEditingController _fileConvertorUrlController;
+  late TextEditingController _serverIpController;
+  late TextEditingController _dashboardUrl1Controller;
+  late TextEditingController _dashboardUrl2Controller;
+  late TextEditingController _webminUrl1Controller;
+  late TextEditingController _webminUrl2Controller;
+  late TextEditingController _piholeUrl1Controller;
+  late TextEditingController _piholeUrl2Controller;
+  late TextEditingController _fileConvertorUrl1Controller;
+  late TextEditingController _fileConvertorUrl2Controller;
+  late TextEditingController _sshHostController;
+  late TextEditingController _sshPortController;
+  late TextEditingController _sshUsernameController;
+  late TextEditingController _sshPasswordController;
 
   @override
   void initState() {
     super.initState();
     final settings = Provider.of<SettingsService>(context, listen: false);
     _nameController = TextEditingController(text: settings.userName);
-    _dashboardUrlController = TextEditingController(
-      text: settings.dashboardUrl,
+    _serverIpController = TextEditingController(text: settings.serverIp);
+    _dashboardUrl1Controller = TextEditingController(
+      text: settings.dashboardUrl1,
     );
-    _webminUrlController = TextEditingController(text: settings.webminUrl);
-    _piholeUrlController = TextEditingController(text: settings.piholeUrl);
-    _fileConvertorUrlController = TextEditingController(
-      text: settings.fileConvertorUrl,
+    _dashboardUrl2Controller = TextEditingController(
+      text: settings.dashboardUrl2,
     );
+    _webminUrl1Controller = TextEditingController(text: settings.webminUrl1);
+    _webminUrl2Controller = TextEditingController(text: settings.webminUrl2);
+    _piholeUrl1Controller = TextEditingController(text: settings.piholeUrl1);
+    _piholeUrl2Controller = TextEditingController(text: settings.piholeUrl2);
+    _fileConvertorUrl1Controller = TextEditingController(
+      text: settings.fileConvertorUrl1,
+    );
+    _fileConvertorUrl2Controller = TextEditingController(
+      text: settings.fileConvertorUrl2,
+    );
+    _sshHostController = TextEditingController(text: settings.sshHost);
+    _sshPortController = TextEditingController(
+      text: settings.sshPort.toString(),
+    );
+    _sshUsernameController = TextEditingController(text: settings.sshUsername);
+    _sshPasswordController = TextEditingController(text: settings.sshPassword);
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _dashboardUrlController.dispose();
-    _webminUrlController.dispose();
-    _piholeUrlController.dispose();
-    _fileConvertorUrlController.dispose();
+    _serverIpController.dispose();
+    _dashboardUrl1Controller.dispose();
+    _dashboardUrl2Controller.dispose();
+    _webminUrl1Controller.dispose();
+    _webminUrl2Controller.dispose();
+    _piholeUrl1Controller.dispose();
+    _piholeUrl2Controller.dispose();
+    _fileConvertorUrl1Controller.dispose();
+    _fileConvertorUrl2Controller.dispose();
+    _sshHostController.dispose();
+    _sshPortController.dispose();
+    _sshUsernameController.dispose();
+    _sshPasswordController.dispose();
     super.dispose();
   }
 
@@ -50,11 +83,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_formKey.currentState!.validate()) {
       await settings.saveSettings(
         userName: _nameController.text.trim(),
-        serverIp: settings.serverIp,
-        dashboardUrl: _dashboardUrlController.text.trim(),
-        webminUrl: _webminUrlController.text.trim(),
-        piholeUrl: _piholeUrlController.text.trim(),
-        fileConvertorUrl: _fileConvertorUrlController.text.trim(),
+        serverIp: _serverIpController.text.trim(),
+        dashboardUrl1: _dashboardUrl1Controller.text.trim(),
+        dashboardUrl2: _dashboardUrl2Controller.text.trim(),
+        webminUrl1: _webminUrl1Controller.text.trim(),
+        webminUrl2: _webminUrl2Controller.text.trim(),
+        piholeUrl1: _piholeUrl1Controller.text.trim(),
+        piholeUrl2: _piholeUrl2Controller.text.trim(),
+        fileConvertorUrl1: _fileConvertorUrl1Controller.text.trim(),
+        fileConvertorUrl2: _fileConvertorUrl2Controller.text.trim(),
+        sshHost: _sshHostController.text.trim(),
+        sshPort: int.tryParse(_sshPortController.text.trim()) ?? 22,
+        sshUsername: _sshUsernameController.text.trim(),
+        sshPassword: _sshPasswordController.text.trim(),
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -103,30 +144,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ]),
                 const SizedBox(height: 32),
 
-                _buildSectionTitle('Connectivity'),
+                _buildSectionTitle('Server Connection'),
                 _buildCard([
                   _buildTextField(
-                    controller: _dashboardUrlController,
-                    label: 'Dashboard URL',
+                    controller: _serverIpController,
+                    label: 'Server Credential (IP/Hostname)',
+                    icon: Icons.dns_outlined,
+                  ),
+                ]),
+                const SizedBox(height: 32),
+
+                _buildSectionTitle('Connectivity'),
+                _buildCard([
+                  _buildConnectivityTile(
+                    title: 'Dashboard',
                     icon: Icons.dashboard_outlined,
+                    primaryController: _dashboardUrl1Controller,
+                    secondaryController: _dashboardUrl2Controller,
                   ),
-                  const Divider(height: 32, indent: 40, color: Colors.white10),
-                  _buildTextField(
-                    controller: _webminUrlController,
-                    label: 'Webmin URL',
+                  const Divider(height: 1, indent: 56, color: Colors.white10),
+                  _buildConnectivityTile(
+                    title: 'Webmin',
                     icon: Icons.terminal_outlined,
+                    primaryController: _webminUrl1Controller,
+                    secondaryController: _webminUrl2Controller,
                   ),
-                  const Divider(height: 32, indent: 40, color: Colors.white10),
-                  _buildTextField(
-                    controller: _piholeUrlController,
-                    label: 'Pi-hole URL',
+                  const Divider(height: 1, indent: 56, color: Colors.white10),
+                  _buildConnectivityTile(
+                    title: 'Pi-hole',
                     icon: Icons.shield_outlined,
+                    primaryController: _piholeUrl1Controller,
+                    secondaryController: _piholeUrl2Controller,
                   ),
-                  const Divider(height: 32, indent: 40, color: Colors.white10),
-                  _buildTextField(
-                    controller: _fileConvertorUrlController,
-                    label: 'File Convertor URL',
+                  const Divider(height: 1, indent: 56, color: Colors.white10),
+                  _buildConnectivityTile(
+                    title: 'File Convertor',
                     icon: Icons.insert_drive_file_outlined,
+                    primaryController: _fileConvertorUrl1Controller,
+                    secondaryController: _fileConvertorUrl2Controller,
+                  ),
+                ]),
+                const SizedBox(height: 32),
+
+                _buildSectionTitle('Terminal (SSH)'),
+                _buildCard([
+                  _buildTextField(
+                    controller: _sshHostController,
+                    label: 'Host IP',
+                    icon: Icons.computer_rounded,
+                  ),
+                  const Divider(height: 1, indent: 56, color: Colors.white10),
+                  _buildTextField(
+                    controller: _sshPortController,
+                    label: 'Port',
+                    icon: Icons.settings_ethernet_rounded,
+                  ),
+                  const Divider(height: 1, indent: 56, color: Colors.white10),
+                  _buildTextField(
+                    controller: _sshUsernameController,
+                    label: 'Username',
+                    icon: Icons.person_rounded,
+                  ),
+                  const Divider(height: 1, indent: 56, color: Colors.white10),
+                  _buildTextField(
+                    controller: _sshPasswordController,
+                    label: 'Password',
+                    icon: Icons.lock_rounded,
                   ),
                 ]),
                 const SizedBox(height: 32),
@@ -213,9 +296,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildCard(List<Widget> children) {
     return Container(
       decoration: BoxDecoration(
-        color: NovaTheme.surface.withOpacity(0.5),
+        color: NovaTheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Column(children: children),
     );
@@ -232,7 +315,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         controller: controller,
         decoration: InputDecoration(
           labelText: label,
-          prefixIcon: Icon(icon, color: NovaTheme.primary.withOpacity(0.7)),
+          prefixIcon: Icon(
+            icon,
+            color: NovaTheme.primary.withValues(alpha: 0.7),
+          ),
           filled: false,
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
@@ -240,6 +326,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
           contentPadding: EdgeInsets.zero,
         ),
         validator: (v) => v == null || v.isEmpty ? 'Field required' : null,
+      ),
+    );
+  }
+
+  Widget _buildConnectivityTile({
+    required String title,
+    required IconData icon,
+    required TextEditingController primaryController,
+    required TextEditingController secondaryController,
+  }) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        leading: Icon(icon, color: NovaTheme.primary.withValues(alpha: 0.7)),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: const Text(
+          'Configure URLs',
+          style: TextStyle(fontSize: 12, color: NovaTheme.textSecondary),
+        ),
+        childrenPadding: const EdgeInsets.only(bottom: 12),
+        children: [
+          _buildTextField(
+            controller: primaryController,
+            label: 'Primary URL',
+            icon: Icons.looks_one_outlined,
+          ),
+          _buildTextField(
+            controller: secondaryController,
+            label: 'Secondary URL (Fallback)',
+            icon: Icons.looks_two_outlined,
+          ),
+        ],
       ),
     );
   }

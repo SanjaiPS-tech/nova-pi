@@ -34,7 +34,7 @@ class CredentialManagerScreen extends StatelessWidget {
           return ListView.separated(
             padding: const EdgeInsets.all(24),
             itemCount: settings.credentials.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 16),
+            separatorBuilder: (_, _) => const SizedBox(height: 16),
             itemBuilder: (context, index) {
               final cred = settings.credentials[index];
               return _buildCredentialCard(context, settings, cred);
