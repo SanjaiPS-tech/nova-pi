@@ -34,6 +34,22 @@ class ConnectionProfile {
       username: json['username'] as String? ?? '',
     );
   }
+
+  ConnectionProfile copyWith({
+    String? id,
+    String? name,
+    String? host,
+    int? port,
+    String? username,
+  }) {
+    return ConnectionProfile(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      host: host ?? this.host,
+      port: port ?? this.port,
+      username: username ?? this.username,
+    );
+  }
 }
 
 class SavedCredential {

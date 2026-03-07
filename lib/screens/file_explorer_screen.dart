@@ -1,10 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
-// removed duplicate import
 import 'package:dartssh2/dartssh2.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../services/settings_service.dart';
+import '../utils/theme.dart';
 
 class FileExplorerScreen extends StatefulWidget {
   const FileExplorerScreen({super.key});
@@ -16,20 +17,13 @@ class FileExplorerScreen extends StatefulWidget {
 enum ClipboardSource { local, remote }
 
 class _FileExplorerScreenState extends State<FileExplorerScreen> {
-  // Enum to track current view mode
   bool _isRemote = false;
-
-  // Clipboard State
   String? _clipboardFile;
   ClipboardSource? _clipboardSource;
-  // TODO: Add support for cut/move later
-  // ClipboardType _clipboardType = ClipboardType.copy;
 
-  // Local State
   Directory? _currentLocalDir;
   List<FileSystemEntity> _localFiles = [];
 
-  // Remote State (SFTP)
   SSHClient? _sshClient;
   SftpClient? _sftp;
   String _currentRemotePath = '/home';
@@ -60,7 +54,6 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
     } else {
       rootDir = await getApplicationDocumentsDirectory();
     }
-
     _currentLocalDir = rootDir;
     await _listLocalFiles();
     setState(() => _isLoading = false);
@@ -72,7 +65,13 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
       final files = _currentLocalDir!.listSync();
       setState(() {
         _localFiles = files;
-        _localFiles.sort((a, b) => a.path.compareTo(b.path));
+        _localFiles.sort((a, b) {
+          final isADir = FileSystemEntity.isDirectorySync(a.path);
+          final isBDir = FileSystemEntity.isDirectorySync(b.path);
+          if (isADir && !isBDir) return -1;
+          if (!isADir && isBDir) return 1;
+          return a.path.toLowerCase().compareTo(b.path.toLowerCase());
+        });
       });
     } catch (e) {
       debugPrint('Error listing local files: $e');
@@ -101,11 +100,8 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
       );
 
       await _sshClient!.authenticated;
-
       _sftp = await _sshClient!.sftp();
       await _listRemoteFiles(_currentRemotePath);
-      // Determine initial path? Usually /home/user or /root.
-      // We start at /home by default in state.
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -124,7 +120,7 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
       _sshClient = null;
       _sftp = null;
       _activeProfile = null;
-      _isRemote = false; // Or stay in remote tab but show list
+      _isRemote = false;
     });
   }
 
@@ -135,7 +131,11 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
       setState(() {
         _currentRemotePath = path;
         _remoteFiles = files;
-        _remoteFiles.sort((a, b) => a.filename.compareTo(b.filename));
+        _remoteFiles.sort((a, b) {
+          if (a.attr.isDirectory && !b.attr.isDirectory) return -1;
+          if (!a.attr.isDirectory && b.attr.isDirectory) return 1;
+          return a.filename.toLowerCase().compareTo(b.filename.toLowerCase());
+        });
       });
     } catch (e) {
       debugPrint('Remote list error: $e');
@@ -146,40 +146,37 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
     }
   }
 
-  // --- Copy / Paste Logic ---
-
   void _copyFile(String path, ClipboardSource source) {
     setState(() {
       _clipboardFile = path;
       _clipboardSource = source;
     });
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Copied ${path.split('/').last}')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Copied ${path.split('/').last}'),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   Future<void> _pasteFile() async {
     if (_clipboardFile == null || _clipboardSource == null) return;
 
     if (_clipboardSource == ClipboardSource.local && _isRemote) {
-      // Local -> Remote (Upload)
       if (_sftp == null) return;
       await _uploadFile(File(_clipboardFile!), _currentRemotePath);
     } else if (_clipboardSource == ClipboardSource.remote && !_isRemote) {
-      // Remote -> Local (Download)
       if (_sftp == null) return;
-      // We need the full remote path. _clipboardFile should store full path.
       if (_currentLocalDir == null) return;
       await _downloadFile(_clipboardFile!, _currentLocalDir!.path);
     } else {
-      // Local->Local or Remote->Remote
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Same-source copy not implemented yet')),
+        const SnackBar(
+          content: Text('Source and destination must differ for now'),
+        ),
       );
     }
-
-    // Clear clipboard after paste? Optional. Keeping it allows multiple pastes.
-    // setState(() { _clipboardFile = null; _clipboardSource = null; });
   }
 
   Future<void> _uploadFile(File localFile, String remoteDir) async {
@@ -189,7 +186,6 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
       final remotePath = remoteDir.endsWith('/')
           ? '$remoteDir$fileName'
           : '$remoteDir/$fileName';
-
       final fileStream = localFile.openRead();
       final remoteFile = await _sftp!.open(
         remotePath,
@@ -198,21 +194,13 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
             SftpFileOpenMode.create |
             SftpFileOpenMode.truncate,
       );
-
-      await remoteFile.write(
-        fileStream.cast(),
-      ); // write() takes Stream<List<int>>
-      // OR: writeStream(fileStream); depending on dartssh2 version
-      // Checking dartssh2 API... SftpFile.write takes Stream<List<int>>
-
+      await remoteFile.write(fileStream.cast());
       await remoteFile.close();
-
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Uploaded $fileName')));
-      _listRemoteFiles(_currentRemotePath); // Refresh
+      _listRemoteFiles(_currentRemotePath);
     } catch (e) {
-      debugPrint("Upload error: $e");
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
@@ -226,26 +214,20 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
     try {
       final fileName = remotePath.split('/').last;
       final localPath = '$localDir/$fileName';
-
       final remoteFile = await _sftp!.open(
         remotePath,
         mode: SftpFileOpenMode.read,
       );
       final localFile = File(localPath);
       final sink = localFile.openWrite();
-
-      // Fix: Cast or use addStream for better type safety
       await sink.addStream(remoteFile.read().cast<List<int>>());
       await sink.close();
-
       await remoteFile.close();
-
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Downloaded $fileName')));
-      _listLocalFiles(); // Refresh
+      _listLocalFiles();
     } catch (e) {
-      debugPrint("Download error: $e");
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Download failed: $e')));
@@ -260,62 +242,101 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
     final portCtrl = TextEditingController(text: '22');
     final userCtrl = TextEditingController();
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Network Place'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Name (e.g. My Server)',
-                ),
-              ),
-              TextField(
-                controller: hostCtrl,
-                decoration: const InputDecoration(labelText: 'Host / IP'),
-              ),
-              TextField(
-                controller: portCtrl,
-                decoration: const InputDecoration(labelText: 'Port'),
-                keyboardType: TextInputType.number,
-              ),
-              TextField(
-                controller: userCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Default Username (Optional)',
-                ),
-              ),
-            ],
-          ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: EdgeInsets.only(
+          top: 32,
+          left: 32,
+          right: 32,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 32,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (nameCtrl.text.isEmpty || hostCtrl.text.isEmpty) return;
-              final profile = ConnectionProfile(
-                id: DateTime.now().millisecondsSinceEpoch.toString(),
-                name: nameCtrl.text.trim(),
-                host: hostCtrl.text.trim(),
-                port: int.tryParse(portCtrl.text) ?? 22,
-                username: userCtrl.text.trim(),
-              );
-              Provider.of<SettingsService>(
-                context,
-                listen: false,
-              ).addConnection(profile);
-              Navigator.pop(ctx);
-            },
-            child: const Text('Add'),
-          ),
-        ],
+        decoration: const BoxDecoration(
+          color: NovaTheme.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Add Network Place',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 32),
+            _buildField(
+              controller: nameCtrl,
+              label: 'Name',
+              icon: Icons.label_important_outline_rounded,
+            ),
+            const SizedBox(height: 20),
+            _buildField(
+              controller: hostCtrl,
+              label: 'Host / IP',
+              icon: Icons.dns_outlined,
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: _buildField(
+                    controller: portCtrl,
+                    label: 'Port',
+                    icon: Icons.numbers_rounded,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 3,
+                  child: _buildField(
+                    controller: userCtrl,
+                    label: 'Username',
+                    icon: Icons.person_outline_rounded,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 40),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  if (nameCtrl.text.isEmpty || hostCtrl.text.isEmpty) return;
+                  final profile = ConnectionProfile(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    name: nameCtrl.text.trim(),
+                    host: hostCtrl.text.trim(),
+                    port: int.tryParse(portCtrl.text) ?? 22,
+                    username: userCtrl.text.trim(),
+                  );
+                  Provider.of<SettingsService>(
+                    context,
+                    listen: false,
+                  ).addConnection(profile);
+                  Navigator.pop(ctx);
+                },
+                child: const Text('Add Node'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+  }) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: NovaTheme.primary.withOpacity(0.7)),
       ),
     );
   }
@@ -327,15 +348,15 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Connect to ${profile.name}'),
+        title: Text('Login to ${profile.name}'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (profile.username.isEmpty)
-              TextField(
-                controller: userCtrl,
-                decoration: const InputDecoration(labelText: 'Username'),
-              ),
+            TextField(
+              controller: userCtrl,
+              decoration: const InputDecoration(labelText: 'Username'),
+            ),
+            const SizedBox(height: 16),
             TextField(
               controller: passCtrl,
               decoration: const InputDecoration(labelText: 'Password'),
@@ -346,29 +367,26 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: const Text('CANCEL'),
           ),
-          ElevatedButton(
+          TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              // Update profile username if provided now
-              final updatedProfile = ConnectionProfile(
-                id: profile.id,
-                name: profile.name,
-                host: profile.host,
-                port: profile.port,
-                username: userCtrl.text.trim(),
+              _connectToProfile(
+                profile.copyWith(username: userCtrl.text.trim()),
+                passCtrl.text.trim(),
               );
-              _connectToProfile(updatedProfile, passCtrl.text.trim());
             },
-            child: const Text('Connect'),
+            child: const Text(
+              'CONNECT',
+              style: TextStyle(color: NovaTheme.primary),
+            ),
           ),
         ],
       ),
     );
   }
 
-  // Navigation Logic
   void _onLocalFolderTap(Directory dir) {
     setState(() => _currentLocalDir = dir);
     _listLocalFiles();
@@ -378,7 +396,7 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
     if (name == '.' || name == '..') {
       if (name == '..' && _currentRemotePath != '/') {
         final parts = _currentRemotePath.split('/');
-        parts.removeLast();
+        if (parts.isNotEmpty) parts.removeLast();
         final newPath = parts.isEmpty ? '/' : parts.join('/');
         _listRemoteFiles(newPath.isEmpty ? '/' : newPath);
       }
@@ -390,7 +408,6 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
     _listRemoteFiles(newPath);
   }
 
-  // UI Construction
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsService>(context);
@@ -398,192 +415,240 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _isRemote
-              ? (_activeProfile != null
-                    ? '${_activeProfile!.name} : $_currentRemotePath'
-                    : 'Network Places')
-              : 'Local Storage',
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(50),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: SegmentedButton<bool>(
-                    segments: const [
-                      ButtonSegment(
-                        value: false,
-                        label: Text('Local'),
-                        icon: Icon(Icons.smartphone),
-                      ),
-                      ButtonSegment(
-                        value: true,
-                        label: Text('Network'),
-                        icon: Icon(Icons.dns),
-                      ),
-                    ],
-                    selected: {_isRemote},
-                    onSelectionChanged: (Set<bool> newSelection) {
-                      setState(() {
-                        _isRemote = newSelection.first;
-                        // If switching to remote and no active connection, we show the list automatically
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _isRemote ? (_activeProfile?.name ?? 'Network') : 'Local Explorer',
         ),
         actions: [
-          if (_isRemote && _sshClient == null)
+          if (_isRemote && _sshClient != null)
             IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: _showAddConnectionDialog,
+              icon: const Icon(Icons.logout_rounded),
+              onPressed: _disconnect,
             ),
-          if (_isRemote && _sshClient != null) ...[
-            IconButton(
-              icon: const Icon(Icons.upload_file),
-              onPressed: () {
-                /* reuse upload logic */
-              },
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: NovaTheme.surface.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withOpacity(0.05)),
+              ),
+              child: Row(
+                children: [
+                  _buildTab('Local', Icons.smartphone_rounded, !_isRemote),
+                  _buildTab('Network', Icons.dns_rounded, _isRemote),
+                ],
+              ),
             ),
-            IconButton(icon: const Icon(Icons.logout), onPressed: _disconnect),
-          ],
+          ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _isRemote
+                ? _buildRemoteView(settings.connections)
+                : _buildLocalList(),
+          ),
         ],
       ),
       floatingActionButton: _clipboardFile != null
-          ? FloatingActionButton(
+          ? FloatingActionButton.extended(
               onPressed: _pasteFile,
-              tooltip: 'Paste ${_clipboardFile!.split('/').last}',
-              child: const Icon(Icons.paste),
-            )
+              icon: const Icon(Icons.paste_rounded),
+              label: Text('Paste into ${_isRemote ? "Remote" : "Local"}'),
+            ).animate().scale().fadeIn()
           : null,
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _isRemote
-          ? _buildRemoteView(settings.connections)
-          : _buildLocalList(),
     );
   }
 
-  Widget _buildRemoteView(List<ConnectionProfile> connections) {
-    if (_sshClient != null) {
-      return _buildRemoteFileList();
-    }
-    // Show Connection List
-    if (connections.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.dns_outlined, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            const Text('No network places added.'),
-            const SizedBox(height: 8),
-            ElevatedButton.icon(
-              onPressed: _showAddConnectionDialog,
-              icon: const Icon(Icons.add),
-              label: const Text('Add Connection'),
-            ),
-          ],
-        ),
-      );
-    }
-    return ListView.builder(
-      itemCount: connections.length,
-      itemBuilder: (context, index) {
-        final profile = connections[index];
-        return ListTile(
-          leading: const Icon(Icons.computer, color: Colors.blue),
-          title: Text(profile.name),
-          subtitle: Text('${profile.username}@${profile.host}'),
-          trailing: IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: () {
-              Provider.of<SettingsService>(
-                context,
-                listen: false,
-              ).removeConnection(profile.id);
-            },
+  Widget _buildTab(String label, IconData icon, bool active) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _isRemote = label == 'Network'),
+        child: AnimatedContainer(
+          duration: 300.ms,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: active
+                ? NovaTheme.primary.withOpacity(0.1)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
           ),
-          onTap: () => _showPasswordDialog(profile),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: active ? NovaTheme.primary : NovaTheme.textSecondary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: active ? FontWeight.bold : FontWeight.normal,
+                  color: active ? NovaTheme.primary : NovaTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocalList() {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: _localFiles.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) return _buildBackItem(true);
+        final file = _localFiles[index - 1];
+        final isDir = FileSystemEntity.isDirectorySync(file.path);
+        return _buildFileItem(
+          file.uri.pathSegments.lastWhere((e) => e.isNotEmpty),
+          isDir,
+          () => isDir ? _onLocalFolderTap(Directory(file.path)) : null,
+          () => isDir ? null : _copyFile(file.path, ClipboardSource.local),
         );
       },
     );
   }
 
-  Widget _buildLocalList() {
-    if (_localFiles.isEmpty) return const Center(child: Text('No files found'));
-    return ListView.builder(
-      itemCount: _localFiles.length + 1,
+  Widget _buildRemoteView(List<ConnectionProfile> connections) {
+    if (_sshClient != null) return _buildRemoteFileList();
+    if (connections.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.dns_rounded,
+              size: 64,
+              color: NovaTheme.primary.withOpacity(0.1),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'No connections added',
+              style: TextStyle(color: NovaTheme.textSecondary),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _showAddConnectionDialog,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Add Place'),
+            ),
+          ],
+        ),
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: connections.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        if (index == 0) {
-          return ListTile(
-            leading: const Icon(Icons.folder_open),
-            title: const Text('..'),
-            onTap: () {
-              if (_currentLocalDir?.parent != null) {
-                _onLocalFolderTap(_currentLocalDir!.parent);
-              }
-            },
-          );
-        }
-        final file = _localFiles[index - 1];
-        final isDir = FileSystemEntity.isDirectorySync(file.path);
-        return ListTile(
-          leading: Icon(isDir ? Icons.folder : Icons.insert_drive_file),
-          title: Text(file.uri.pathSegments.lastWhere((e) => e.isNotEmpty)),
-          onLongPress: () {
-            if (!isDir) {
-              _copyFile(file.path, ClipboardSource.local);
-            }
-          },
-          onTap: () {
-            if (isDir) {
-              _onLocalFolderTap(Directory(file.path));
-            }
-          },
+        final profile = connections[index];
+        return Container(
+          decoration: BoxDecoration(
+            color: NovaTheme.surface.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.05)),
+          ),
+          child: ListTile(
+            leading: const Icon(
+              Icons.computer_rounded,
+              color: NovaTheme.secondary,
+            ),
+            title: Text(
+              profile.name,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(profile.host, style: const TextStyle(fontSize: 12)),
+            trailing: IconButton(
+              icon: const Icon(
+                Icons.remove_circle_outline_rounded,
+                color: Colors.grey,
+              ),
+              onPressed: () => Provider.of<SettingsService>(
+                context,
+                listen: false,
+              ).removeConnection(profile.id),
+            ),
+            onTap: () => _showPasswordDialog(profile),
+          ),
         );
       },
     );
   }
 
   Widget _buildRemoteFileList() {
-    if (_remoteFiles.isEmpty)
-      return const Center(child: Text('Empty directory'));
     return ListView.builder(
-      itemCount: _remoteFiles.length,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: _remoteFiles.length + 1,
       itemBuilder: (context, index) {
-        final file = _remoteFiles[index];
+        if (index == 0) return _buildBackItem(false);
+        final file = _remoteFiles[index - 1];
+        if (file.filename == '.' || file.filename == '..')
+          return const SizedBox.shrink();
         final isDir = file.attr.isDirectory;
         final fullPath = _currentRemotePath.endsWith('/')
             ? '$_currentRemotePath${file.filename}'
             : '$_currentRemotePath/${file.filename}';
-
-        return ListTile(
-          leading: Icon(
-            isDir ? Icons.folder : Icons.insert_drive_file,
-            color: Colors.amber,
-          ),
-          title: Text(file.filename),
-          onLongPress: () {
-            if (!isDir) {
-              // Allow copying files only for now
-              _copyFile(fullPath, ClipboardSource.remote);
-            }
-          },
-          onTap: () {
-            if (isDir) {
-              _onRemoteFolderTap(file.filename);
-            } else {
-              // Download logic (simplified for now to match previous impl but clean)
-            }
-          },
+        return _buildFileItem(
+          file.filename,
+          isDir,
+          () => isDir ? _onRemoteFolderTap(file.filename) : null,
+          () => isDir ? null : _copyFile(fullPath, ClipboardSource.remote),
         );
       },
+    );
+  }
+
+  Widget _buildBackItem(bool local) {
+    if (local && _currentLocalDir?.path == '/') return const SizedBox.shrink();
+    if (!local && _currentRemotePath == '/') return const SizedBox.shrink();
+
+    return ListTile(
+      leading: const Icon(
+        Icons.arrow_upward_rounded,
+        size: 20,
+        color: NovaTheme.primary,
+      ),
+      title: const Text(
+        '...',
+        style: TextStyle(fontWeight: FontWeight.bold, color: NovaTheme.primary),
+      ),
+      onTap: () => local
+          ? _onLocalFolderTap(_currentLocalDir!.parent)
+          : _onRemoteFolderTap('..'),
+    );
+  }
+
+  Widget _buildFileItem(
+    String name,
+    bool isDir,
+    VoidCallback onTap,
+    VoidCallback onLongPress,
+  ) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+      leading: Icon(
+        isDir ? Icons.folder_rounded : Icons.insert_drive_file_rounded,
+        color: isDir
+            ? Colors.amber.withOpacity(0.8)
+            : NovaTheme.textSecondary.withOpacity(0.5),
+      ),
+      title: Text(
+        name,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: isDir ? FontWeight.w600 : FontWeight.normal,
+        ),
+      ),
+      onTap: onTap,
+      onLongPress: onLongPress,
     );
   }
 }
